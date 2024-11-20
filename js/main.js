@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Función para eliminar un gatito
     function deleteGatito(id, cardElement) {
-        fetch(`https://673d38820118dbfe86068b3b.mockapi.io/gatitos${id}`, {
+        fetch(`https://673d38820118dbfe86068b3b.mockapi.io/gatitos/${id}`, {
             method: "DELETE"
         })
         .then(response => {
