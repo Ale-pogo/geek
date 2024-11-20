@@ -111,11 +111,11 @@ main {
     position: relative;
     top: 0;
     flex-grow: 1;
-    background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('/assets/backgraund_main.png') repeat;
+    background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('./assets/backgraund_main.png') repeat;
 }
 
 .card {    
-    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.8)), url('/assets/cat_fondo_card01.jpg') center/cover no-repeat;
+    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.8)), url('./assets/cat_fondo_card01.jpg') center/cover no-repeat;
     background-color: var(--color-claro);
     border: 2px solid var(--color-marron_o);
     border-radius: 1em;
