@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Validar y agregar el gatito
         if (nombre && foto && datos && tiempo && contacto) {
-            fetch("http://localhost:3002/gatitos", {
+            fetch("https://673d38820118dbfe86068b3b.mockapi.io/:endpoint", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("gatitos-container");
 
     // Cargar y mostrar las cards de gatitos al cargar la página
-    fetch("http://localhost:3002/gatitos")
+    fetch("https://673d38820118dbfe86068b3b.mockapi.io/:endpoint")
         .then(response => response.json())
         .then(gatitos => {
             renderGatitos(gatitos);
@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Función para eliminar un gatito
     function deleteGatito(id, cardElement) {
-        fetch(`http://localhost:3002/gatitos/${id}`, {
+        fetch(`https://673d38820118dbfe86068b3b.mockapi.io/:endpoint${id}`, {
             method: "DELETE"
         })
         .then(response => {
