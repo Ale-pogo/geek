@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cargar Nuevo Gatito</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-logo">
+            <img src="assets/jeti.svg" alt="Logo" class="logo-img"> <!-- Logo a la izquierda -->
+        </div>
+        <div class="header-search">
+            <input type="text" id="search-input" placeholder="Buscar gatito...">
+            <button id="search-button">Buscar</button>
+        </div>
+        <div class="header-actions">
+            <button onclick="window.location.href='index.html'">Volver Pagina</button>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main>
+        <h1>Cargar Nuevo Gatito</h1>
+        <form id="gatito-form">
+            <input type="text" id="nombre" name="nombre" placeholder="Nombre del Gatito" required>
+            <input type="url" id="foto" name="foto" placeholder="Foto del Gatito" required>
+            <textarea id="datos" name="datos" placeholder="Datos del Gatito" required></textarea>
+            <input type="text" id="tiempo" name="tiempo" placeholder="Tiempo del Gatito" required>
+            <input type="tel" id="contacto" name="contacto" placeholder="Contacto" required>
+
+            <!-- Botones para agregar y limpiar el formulario -->
+            <button type="submit">Agregar Gatito</button>
+            <button type="button" id="clear-form-button">Limpiar Formulario</button>
+        </form>
+    </main>
+
+    <!-- footer -->
+    <footer>
+        <div class="footer-logo">
+            <a href="https://github.com/Ale-pogo" target="_blank">
+                <img src="assets/cha_pie.svg" alt="Logo" class="logo-img">
+            </a>
+        </div>
+        <p class="footer-text">2024 Adopción de Gatitos - Todos los derechos reservados</p>
+        <div class="footer-manitos">
+            <img src="assets/manitos.gif" alt="Manitos" class="manitos">
+        </div>
+    </footer>
+
+    <script src="js/carga.js"></script>
+</body>
+</html>

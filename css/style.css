@@ -1,0 +1,341 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather+Sans:ital,wght@0,300..800;1,300..800&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap');
+
+/* ******** root ******** */
+:root {
+    --color-oscuro: #4A4947;
+    --color-marron_o: #B17457;
+    --color-marron_c: #D8D2C2;
+    --color-claro: #FAF7F0;
+    --color-blanco: #FFFFFF;
+
+    --color-fonts: #4c4b4b;
+    --font-titulo: "Merriweather Sans", sans-serif;
+    --font-texto: "Roboto Mono", serif;
+    --font-size_titulo: 1.5rem;
+    --font-size_texto: clamp(1rem, 2vw + 1rem, 3rem);
+}
+
+/* body */
+body {
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-family: var(--font-texto);
+    background-color: var(--color-marron_c);
+    text-align: center;
+}
+
+/* Header */
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background-color: var(--color-oscuro);
+    color: var(--color-marron_c);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+} 
+
+.header-logo {
+    flex: 1;
+}
+
+.logo-img {
+    height: 70px;
+}
+
+.manitos {
+    height: 4em;
+}
+
+.header-search {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+}
+
+.header-search input {
+    width: 200px;
+    padding: 5px;
+    border-radius: 5px 0 0 5px;
+    border: 1px solid var(--color-marron_o);
+}
+
+.header-search button {
+    padding: 5px 10px;
+    border-radius: 0 5px 5px 0;
+    border: 1px solid var(--color-marron_o);
+    background-color: var(--color-marron_o);
+    color: var(--color-blanco);
+    cursor: pointer;
+}
+
+.header-search button:hover {
+    background-color: var(--color-oscuro);
+}
+
+.header-actions {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.header-actions button {
+    padding: 8px 12px;
+    background-color: var(--color-marron_o);
+    color: var(--color-claro);
+    border: 1px solid var(--color-marron_o);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.header-actions button:hover {
+    background-color: var(--color-oscuro);
+}
+
+/* Main */
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 1em 0;
+    font-family: var(--font-texto);
+    position: relative;
+    top: 0;
+    flex-grow: 1;
+    background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8)), url('/assets/backgraund_main.png') repeat;
+}
+
+.card {    
+    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.8)), url('/assets/cat_fondo_card01.jpg') center/cover no-repeat;
+    background-color: var(--color-claro);
+    border: 2px solid var(--color-marron_o);
+    border-radius: 1em;
+    display: inline-block;
+    box-shadow: 0 0 1em rgba(0, 0, 0, 0.2);
+    padding: 2em;
+    margin: 1em;
+    width: 80%;
+    max-width: 20em;
+    text-align: center;
+    font-family: var(--font-texto);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}
+
+.card-content {
+    position: relative;
+    z-index: 2;
+}
+
+.card h2 {
+    font-family: var(--font-titulo);
+    font-size: var(--font-size_titulo);
+    color: var(--color-oscuro);
+    margin: 0.5em 0;
+}
+
+.gatitos-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    
+    width: 90%;
+    text-align: center;
+    margin: auto;
+    padding-bottom: 2em;
+}
+
+.gatito-foto{
+    width: 100%;
+    /*height: auto;*/
+    min-height: auto;
+    height: 20em;
+    border-radius: 0.5em;
+    object-fit: cover;
+    border: 0.2em solid var(--color-marron_o);
+    box-shadow: 0 0 1em rgba(0, 0, 0, 0.2); 
+}
+
+.icon {
+    width: 30px;
+    height: 30px;    
+}
+
+.icon:hover {
+    filter: grayscale(100%);
+    transition: filter 0.3s;
+}
+
+.delete-button {
+    border: none;
+    padding: 0em;
+    cursor: pointer;    
+}
+
+.delete-button:hover {
+    filter: grayscale(100%);
+    transition: filter 0.3s;
+}
+
+/* Footer */
+footer {
+    background-color: var(--color-oscuro);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--font-titulo);
+    color: var(--color-blanco);
+    position: sticky;
+    width: 100vw;
+    padding: 0.5em;
+    bottom: 0;
+}
+
+.footer-logo, .footer-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.footer-logo img {
+    height: 30px;
+    margin-right: 10px;
+}
+
+.footer-text {
+    text-align: center;
+    font-size: 14px;
+}
+
+/* form en carga */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 400px;
+    margin: 3em auto;    
+}
+
+form label {
+    font-weight: bold;
+    margin-bottom: 0.3em;
+    color: var(--color-oscuro);
+}
+
+form button {
+    padding: 0.8em;
+    background-color: var(--color-marron_o);
+    color: var(--color-claro);
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+form input, form textarea {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    outline-color: var(--color-claro);
+}
+form button:hover {
+    background-color: var(--color-oscuro);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-logo, .header-search, .header-actions {
+        flex: none;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .header-search {
+        justify-content: flex-start;
+    }
+
+    .header-search input {
+        width: 100%;
+    }
+
+    .card {
+        width: 100%;
+        max-width: none;
+    }
+
+    .gatitos-container {
+        grid-template-columns: 1fr;
+    }
+
+    footer {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-logo img {
+        height: 50px;
+    }
+
+    .logo-img {
+        height: 50px;
+    }
+
+    .manitos {
+        height: 3em;
+    }
+
+    .header-search input {
+        padding: 5px;
+    }
+
+    .header-search button {
+        padding: 5px;
+    }
+
+    .header-actions button {
+        padding: 6px 10px;
+    }
+
+    .card {
+        padding: 1em;
+    }
+
+    .card h2 {
+        font-size: 1.2rem;
+    }
+
+    .gatito-foto {
+        height: 15em;
+    }
+
+    form {
+        width: 90%;
+        margin: 2em auto;
+    }
+
+    form button {
+        padding: 0.6em;
+    }
+}
