@@ -1,4 +1,4 @@
-# Proyecto Web: Adopción de Gatitos 🐾
+# Proyecto Web: (Alura-Geek - Challenge) Adopción de Gatitos 🐾
 
 Este es un proyecto web diseñado para facilitar la adopción de gatitos. Consta de dos páginas principales: `index.html` y `carga.html`, ambas interconectadas y desarrolladas utilizando **HTML**, **CSS**, **JavaScript** y **MockAPI**.
 
