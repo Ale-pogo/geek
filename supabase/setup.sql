@@ -6,25 +6,81 @@ create table if not exists public.gatitos (
   tiempo text not null check (char_length(btrim(tiempo)) between 1 and 50),
   contacto text not null check (contacto ~ '^[0-9]{8,15}$'),
   estado text not null default 'pendiente'
-    check (estado in ('pendiente', 'aprobado', 'rechazado')),
+    check (estado in ('pendiente', 'aprobado', 'adoptado', 'rechazado')),
   created_at timestamptz not null default now()
 );
 
+alter table public.gatitos
+  drop constraint if exists gatitos_estado_check;
+alter table public.gatitos
+  add constraint gatitos_estado_check
+  check (estado in ('pendiente', 'aprobado', 'adoptado', 'rechazado'));
+
+create table if not exists public.administradores (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.administradores enable row level security;
+revoke all on public.administradores from anon, authenticated;
+
+create or replace function public.es_administrador()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.administradores
+    where user_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function public.es_administrador() from public, anon;
+grant execute on function public.es_administrador() to authenticated;
+
 alter table public.gatitos enable row level security;
 
-grant select, insert on public.gatitos to anon, authenticated;
+revoke all on public.gatitos from anon, authenticated;
+grant insert (nombre, foto, datos, tiempo, contacto, estado) on public.gatitos to anon, authenticated;
+grant select, update, delete on public.gatitos to authenticated;
 
 drop policy if exists "Public can view approved cats" on public.gatitos;
-create policy "Public can view approved cats"
-  on public.gatitos for select
-  to anon, authenticated
-  using (estado = 'aprobado');
+drop policy if exists "Public can view approved cat photos via view" on public.gatitos;
+drop policy if exists "Administrators can view all cat records" on public.gatitos;
+drop policy if exists "Administrators can manage cats" on public.gatitos;
+create policy "Administrators can manage cats"
+  on public.gatitos for all
+  to authenticated
+  using (public.es_administrador())
+  with check (public.es_administrador());
+
+create or replace view public.gatitos_public as
+select
+  id,
+  nombre,
+  foto,
+  datos,
+  tiempo,
+  case when estado = 'aprobado' then contacto else null end as contacto,
+  estado,
+  created_at
+from public.gatitos
+where estado in ('aprobado', 'adoptado');
+
+revoke all on public.gatitos_public from public, anon, authenticated;
+grant select on public.gatitos_public to anon, authenticated;
 
 drop policy if exists "Public can submit cats for review" on public.gatitos;
 create policy "Public can submit cats for review"
   on public.gatitos for insert
   to anon, authenticated
-  with check (estado = 'pendiente');
+  with check (
+    estado = 'pendiente'
+    and foto ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$'
+  );
 
 insert into public.gatitos (nombre, foto, datos, tiempo, contacto, estado)
 select existing.nombre, existing.foto, existing.datos, existing.tiempo, existing.contacto, 'aprobado'
@@ -75,11 +131,16 @@ create policy "Public can view approved cat photos"
     bucket_id = 'gatitos'
     and exists (
       select 1
-      from public.gatitos
-      where gatitos.foto = storage.objects.name
-        and gatitos.estado = 'aprobado'
+      from public.gatitos_public
+      where gatitos_public.foto = storage.objects.name
     )
   );
+
+drop policy if exists "Administrators can view all cat photos" on storage.objects;
+create policy "Administrators can view all cat photos"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'gatitos' and public.es_administrador());
 
 drop policy if exists "Public can upload cat photos" on storage.objects;
 create policy "Public can upload cat photos"
@@ -89,3 +150,10 @@ create policy "Public can upload cat photos"
     bucket_id = 'gatitos'
     and name ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$'
   );
+
+grant delete on storage.objects to authenticated;
+drop policy if exists "Administrators can delete cat photos" on storage.objects;
+create policy "Administrators can delete cat photos"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'gatitos' and public.es_administrador());

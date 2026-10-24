@@ -31,15 +31,21 @@ La clave pública se incluye en el frontend: la seguridad depende de las políti
 ## Preparar Supabase
 
 1. Crea un proyecto en Supabase y copia su Project URL y clave pública.
-2. En **SQL Editor**, ejecuta el contenido de [`supabase/setup.sql`](./supabase/setup.sql). Además de configurar el proyecto, este script importa como aprobados los diez avisos iniciales de `db.json`; es idempotente y no duplica los que ya existan por URL de foto.
-3. Configura las variables locales de `.env.local` y ejecuta `npm run dev`.
-4. Comprueba la carga de una imagen y del aviso. Los archivos admitidos son JPG, PNG y WebP de hasta 5 MB.
+2. En **SQL Editor**, ejecuta el contenido de [`supabase/setup.sql`](./supabase/setup.sql). El script crea la tabla, las políticas de seguridad y el bucket privado; también importa como aprobados los diez avisos iniciales de `db.json` sin duplicar los que ya existan por URL de foto. Si ya habías configurado Supabase, vuelve a ejecutar el script actualizado para aplicar los cambios.
+3. En **Authentication → Users**, agrega manualmente un usuario para la administradora con correo y contraseña. No hay registro de administradores desde el sitio. Desactiva el registro público de usuarios en la configuración del proveedor Email.
+4. Copia el **UID** de ese usuario desde la lista de Users. En **SQL Editor**, autorízalo como administrador ejecutando, con su UID real:
+   ```sql
+   insert into public.administradores (user_id)
+   values ('UID-DEL-USUARIO')
+   on conflict (user_id) do nothing;
+   ```
+5. Configura las variables locales de `.env.local` y ejecuta `npm run dev`. Los archivos admitidos son JPG, PNG y WebP de hasta 5 MB.
 
-El script crea la tabla `gatitos` y el bucket privado `gatitos`. Los envíos anónimos se guardan como `pendiente`; solo se muestran avisos con estado `aprobado`. Las fotos del bucket solo se pueden leer cuando su aviso está aprobado. Para moderar, abre **Table Editor → gatitos** en Supabase y cambia el estado del aviso que quieras publicar a `aprobado` (o a `rechazado`). La web no permite borrar avisos públicamente.
+En el sitio, entra en **Administrar** e inicia sesión con esa cuenta. Los envíos nuevos quedan como `pendiente`; desde el panel puedes **Aprobar**, **Rechazar**, **Marcar adoptado** o **Eliminar** un aviso. Los aprobados aparecen en “Gatitos en adopción”. Los adoptados aparecen en la página “Gatitos adoptados”, sin mostrar el WhatsApp de contacto. Eliminar borra el aviso y trata de borrar también su foto del bucket.
 
-El bucket permite cargas anónimas para que cualquier visitante pueda enviar una foto. El tamaño y formato están limitados, pero un sitio público aún puede recibir spam o consumir la cuota gratuita de almacenamiento. Revisa periódicamente los avisos y el uso del proyecto. Si el sitio crece, conviene añadir autenticación o un mecanismo anti-spam antes de abrir las cargas sin moderación.
+La tabla y el bucket tienen políticas RLS: solo un usuario cuyo UID esté en `administradores` puede revisar y modificar avisos. La API pública solo expone los campos necesarios de avisos aprobados y adoptados; las fotos siguen en un bucket privado. La clave pública del frontend no es secreta y nunca debe reemplazarse por una clave `secret` o `service_role`.
 
-Si ya habías ejecutado una versión anterior de `setup.sql`, vuelve a ejecutar el script actualizado para importar los avisos iniciales que falten.
+El formulario permite envíos y cargas anónimas para que visitantes publiquen avisos. El tamaño y formato están limitados, y los avisos requieren aprobación, pero un sitio público todavía puede recibir spam o consumir almacenamiento. Revisa el uso del proyecto y considera añadir CAPTCHA o límites de frecuencia si aumentan los envíos.
 
 ## Publicar gratis en GitHub Pages
 

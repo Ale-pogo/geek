@@ -19,17 +19,46 @@ const imageExtensions = {
   "image/webp": "webp",
 };
 
+const catStatuses = {
+  pendiente: "Pendiente",
+  aprobado: "En adopción",
+  adoptado: "Adoptado",
+  rechazado: "Rechazado",
+};
+
+async function addSignedPhotoUrls(cats) {
+  const storagePaths = cats
+    .map((cat) => cat.foto)
+    .filter((foto) => !/^https?:\/\//i.test(foto));
+  if (!storagePaths.length) return cats;
+
+  const { data, error } = await supabase.storage
+    .from(storageBucket)
+    .createSignedUrls(storagePaths, 3600);
+  if (error) throw error;
+  const signedUrls = new Map((data ?? []).map(({ path, signedUrl }) => [path, signedUrl]));
+  return cats.map((cat) => ({ ...cat, foto: signedUrls.get(cat.foto) ?? cat.foto }));
+}
+
 function App() {
   const [page, setPage] = useState("list");
   const [gatitos, setGatitos] = useState(supabase ? [] : existingCats.gatitos);
+  const [adoptedCats, setAdoptedCats] = useState([]);
+  const [adminCats, setAdminCats] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [adminCredentials, setAdminCredentials] = useState({ email: "", password: "" });
   const [photo, setPhoto] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const photoInput = useRef(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(Boolean(supabase));
+  const [isAdmin, setIsAdmin] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminSaving, setAdminSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState("info");
 
@@ -63,31 +92,17 @@ function App() {
     async function loadGatitos() {
       try {
         const { data, error } = await supabase
-          .from("gatitos")
-          .select("id, nombre, foto, datos, tiempo, contacto")
-          .eq("estado", "aprobado")
+          .from("gatitos_public")
+          .select("id, nombre, foto, datos, tiempo, contacto, estado")
+          .in("estado", ["aprobado", "adoptado"])
           .order("created_at", { ascending: false });
         if (error) throw error;
 
-        const storagePaths = (data ?? [])
-          .map((gatito) => gatito.foto)
-          .filter((foto) => !/^https?:\/\//i.test(foto));
-        let signedUrls = new Map();
-        if (storagePaths.length) {
-          const { data: signedPhotos, error: signedError } = await supabase.storage
-            .from(storageBucket)
-            .createSignedUrls(storagePaths, 3600);
-          if (signedError) throw signedError;
-          signedUrls = new Map(signedPhotos.map(({ path, signedUrl }) => [path, signedUrl]));
-        }
+        const catsWithPhotos = await addSignedPhotoUrls(data ?? []);
 
         if (isMounted) {
-          setGatitos(
-            (data ?? []).map((gatito) => ({
-              ...gatito,
-              foto: signedUrls.get(gatito.foto) ?? gatito.foto,
-            })),
-          );
+          setGatitos(catsWithPhotos.filter((cat) => cat.estado === "aprobado"));
+          setAdoptedCats(catsWithPhotos.filter((cat) => cat.estado === "adoptado"));
         }
       } catch (error) {
         if (isMounted) {
@@ -106,6 +121,69 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    let isMounted = true;
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (isMounted) {
+        setSession(nextSession);
+        setIsAdmin(nextSession ? null : false);
+      }
+    });
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (isMounted) setSession(data.session);
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setNotice(`No se pudo comprobar la sesión: ${error.message}`);
+          setNoticeType("error");
+        }
+      })
+      .finally(() => {
+        if (isMounted) setAuthLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || !session) {
+      setIsAdmin(false);
+      setAdminCats([]);
+      return undefined;
+    }
+
+    let isMounted = true;
+    async function checkAdminAccess() {
+      try {
+        const { data, error } = await supabase.rpc("es_administrador");
+        if (error) throw error;
+        if (isMounted) setIsAdmin(data === true);
+      } catch (error) {
+        if (isMounted) {
+          setNotice(`No se pudo comprobar el permiso de administración: ${error.message}`);
+          setNoticeType("error");
+          setIsAdmin(false);
+        }
+      }
+    }
+
+    checkAdminAccess();
+    return () => {
+      isMounted = false;
+    };
+  }, [session]);
+
   const filteredGatitos = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("es");
     if (!normalizedQuery) return gatitos;
@@ -113,6 +191,13 @@ function App() {
       `${gatito.nombre} ${gatito.datos}`.toLocaleLowerCase("es").includes(normalizedQuery),
     );
   }, [gatitos, query]);
+  const filteredAdoptedCats = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("es");
+    if (!normalizedQuery) return adoptedCats;
+    return adoptedCats.filter((gatito) =>
+      `${gatito.nombre} ${gatito.datos}`.toLocaleLowerCase("es").includes(normalizedQuery),
+    );
+  }, [adoptedCats, query]);
 
   function openForm() {
     setNotice("");
@@ -124,6 +209,149 @@ function App() {
     setNotice("");
     setPage("list");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showPage(nextPage) {
+    setNotice("");
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function refreshPublicCats() {
+    const { data, error } = await supabase
+      .from("gatitos_public")
+      .select("id, nombre, foto, datos, tiempo, contacto, estado")
+      .in("estado", ["aprobado", "adoptado"])
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const catsWithPhotos = await addSignedPhotoUrls(data ?? []);
+    setGatitos(catsWithPhotos.filter((cat) => cat.estado === "aprobado"));
+    setAdoptedCats(catsWithPhotos.filter((cat) => cat.estado === "adoptado"));
+  }
+
+  async function refreshAdminCats() {
+    const { data, error } = await supabase
+      .from("gatitos")
+      .select("id, nombre, foto, datos, tiempo, contacto, estado, created_at")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    setAdminCats(await addSignedPhotoUrls(data ?? []));
+  }
+
+  useEffect(() => {
+    if (!supabase || !session || !isAdmin || page !== "admin") return undefined;
+    let isMounted = true;
+    async function loadAdminCats() {
+      setAdminLoading(true);
+      try {
+        await refreshAdminCats();
+      } catch (error) {
+        if (isMounted) {
+          setNotice(`No se pudieron cargar los avisos para moderar: ${error.message}`);
+          setNoticeType("error");
+        }
+      } finally {
+        if (isMounted) setAdminLoading(false);
+      }
+    }
+    loadAdminCats();
+    return () => {
+      isMounted = false;
+    };
+  }, [session, isAdmin, page]);
+
+  async function handleAdminLogin(event) {
+    event.preventDefault();
+    setNotice("");
+    setAdminSaving(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword(adminCredentials);
+      if (error) throw error;
+      setAdminCredentials({ email: "", password: "" });
+      setNotice("Sesión iniciada. Comprobando permisos de administración...");
+      setNoticeType("info");
+    } catch (error) {
+      setNotice(`No se pudo iniciar sesión: ${error.message}`);
+      setNoticeType("error");
+    } finally {
+      setAdminSaving(false);
+    }
+  }
+
+  async function handleAdminLogout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setNotice(`No se pudo cerrar la sesión: ${error.message}`);
+      setNoticeType("error");
+      return;
+    }
+    setPage("list");
+    setNotice("Sesión cerrada.");
+    setNoticeType("success");
+  }
+
+  async function handleStatusChange(cat, estado) {
+    setAdminSaving(true);
+    setNotice("");
+    try {
+      const { error } = await supabase.from("gatitos").update({ estado }).eq("id", cat.id);
+      if (error) throw error;
+      try {
+        await Promise.all([refreshAdminCats(), refreshPublicCats()]);
+        setNotice(`El aviso de ${cat.nombre} ahora está: ${catStatuses[estado].toLowerCase()}.`);
+        setNoticeType("success");
+      } catch (error) {
+        setNotice(`El aviso se actualizó, pero no se pudieron refrescar los listados: ${error.message}`);
+        setNoticeType("error");
+      }
+    } catch (error) {
+      setNotice(`No se pudo actualizar el aviso: ${error.message}`);
+      setNoticeType("error");
+    } finally {
+      setAdminSaving(false);
+    }
+  }
+
+  async function handleDeleteCat(cat) {
+    if (!window.confirm(`¿Eliminar definitivamente el aviso de ${cat.nombre}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setAdminSaving(true);
+    setNotice("");
+    try {
+      const { error } = await supabase.from("gatitos").delete().eq("id", cat.id);
+      if (error) throw error;
+
+      let photoCleanupError = null;
+      if (!/^https?:\/\//i.test(cat.foto)) {
+        const { error: storageError } = await supabase.storage.from(storageBucket).remove([cat.foto]);
+        photoCleanupError = storageError;
+      }
+
+      let refreshError = null;
+      try {
+        await Promise.all([refreshAdminCats(), refreshPublicCats()]);
+      } catch (error) {
+        refreshError = error;
+      }
+
+      if (photoCleanupError || refreshError) {
+        const details = [
+          photoCleanupError && `no se pudo borrar la foto: ${photoCleanupError.message}`,
+          refreshError && `no se pudieron refrescar los listados: ${refreshError.message}`,
+        ].filter(Boolean).join("; ");
+        setNotice(`El aviso se eliminó, pero ${details}.`);
+        setNoticeType("error");
+      } else {
+        setNotice(`Se eliminó el aviso de ${cat.nombre}.`);
+        setNoticeType("success");
+      }
+    } catch (error) {
+      setNotice(`No se pudo eliminar el aviso: ${error.message}`);
+      setNoticeType("error");
+    } finally {
+      setAdminSaving(false);
+    }
   }
 
   function handlePhotoChange(event) {
@@ -216,21 +444,36 @@ function App() {
           <span>Adopción de Gatitos</span>
         </a>
         <div className="header-actions">
-          {page === "list" ? (
-            <>
-              <label className="search-box">
-                <span className="visually-hidden">Buscar gatitos</span>
-                <input
-                  type="search"
-                  placeholder="Buscar gatito..."
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </label>
-              <button className="button button-primary" onClick={openForm}>
-                Agregar Gatito
-              </button>
-            </>
+          {(page === "list" || page === "adopted") && (
+            <label className="search-box">
+              <span className="visually-hidden">Buscar gatitos</span>
+              <input
+                type="search"
+                placeholder="Buscar gatito..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+          )}
+          {page !== "list" && (
+            <button className="button button-secondary" onClick={showList}>
+              En adopción
+            </button>
+          )}
+          {page !== "adopted" && (
+            <button className="button button-secondary" onClick={() => showPage("adopted")}>
+              Adoptados
+            </button>
+          )}
+          {page !== "admin" && (
+            <button className="button button-secondary" onClick={() => showPage("admin")}>
+              Administrar
+            </button>
+          )}
+          {page !== "form" ? (
+            <button className="button button-primary" onClick={openForm}>
+              Agregar Gatito
+            </button>
           ) : (
             <button className="button button-secondary" onClick={showList}>
               Volver al listado
@@ -246,19 +489,23 @@ function App() {
           </div>
         )}
 
-        {page === "list" ? (
+        {page === "list" || page === "adopted" ? (
           <section className="content-section" aria-labelledby="page-title">
             <div className="section-heading">
-              <p className="eyebrow">Un hogar puede cambiarlo todo</p>
-              <h1 id="page-title">Gatitos en adopción</h1>
-              <p className="intro">Conoce a quienes buscan una familia y contacta a su cuidador.</p>
+              <p className="eyebrow">{page === "list" ? "Un hogar puede cambiarlo todo" : "Historias con final feliz"}</p>
+              <h1 id="page-title">{page === "list" ? "Gatitos en adopción" : "Gatitos adoptados"}</h1>
+              <p className="intro">
+                {page === "list"
+                  ? "Conoce a quienes buscan una familia y contacta a su cuidador."
+                  : "Un registro de los gatitos que ya encontraron un hogar."}
+              </p>
             </div>
 
             {loading ? (
               <p className="empty-state" role="status">Cargando gatitos...</p>
-            ) : filteredGatitos.length ? (
+            ) : (page === "list" ? filteredGatitos : filteredAdoptedCats).length ? (
               <div className="gatitos-grid">
-                {filteredGatitos.map((gatito) => (
+                {(page === "list" ? filteredGatitos : filteredAdoptedCats).map((gatito) => (
                   <article className="cat-card" key={gatito.id}>
                     <button
                       className="cat-photo-button"
@@ -272,23 +519,134 @@ function App() {
                       <h2>{gatito.nombre}</h2>
                       <p className="cat-description">{gatito.datos}</p>
                       <p><strong>Edad:</strong> {gatito.tiempo}</p>
-                      <a
-                        className="contact-link"
-                        href={`https://wa.me/${gatito.contacto.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <img src={whatsappIcon} alt="" />
-                        Contactar por WhatsApp
-                      </a>
+                      {gatito.contacto && (
+                        <a
+                          className="contact-link"
+                          href={`https://wa.me/${gatito.contacto.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img src={whatsappIcon} alt="" />
+                          Contactar por WhatsApp
+                        </a>
+                      )}
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
               <p className="empty-state">
-                {query ? "No encontramos gatitos con esa búsqueda." : "Todavía no hay avisos publicados."}
+                {query
+                  ? "No encontramos gatitos con esa búsqueda."
+                  : page === "list"
+                    ? "Todavía no hay avisos publicados."
+                    : "Todavía no hay gatitos en el registro de adoptados."}
               </p>
+            )}
+          </section>
+        ) : page === "admin" ? (
+          <section className="content-section admin-section" aria-labelledby="page-title">
+            <div className="section-heading">
+              <p className="eyebrow">Acceso privado</p>
+              <h1 id="page-title">Administrar avisos</h1>
+              <p className="intro">Aprueba, rechaza, marca como adoptado o elimina publicaciones.</p>
+            </div>
+
+            {!supabase ? (
+              <p className="empty-state">Configura Supabase para acceder a la administración.</p>
+            ) : authLoading ? (
+              <p className="empty-state" role="status">Comprobando sesión...</p>
+            ) : !session ? (
+              <form className="cat-form admin-login" onSubmit={handleAdminLogin}>
+                <label>
+                  Correo electrónico
+                  <input
+                    type="email"
+                    autoComplete="username"
+                    value={adminCredentials.email}
+                    onChange={(event) => setAdminCredentials({ ...adminCredentials, email: event.target.value })}
+                    required
+                  />
+                </label>
+                <label>
+                  Contraseña
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={adminCredentials.password}
+                    onChange={(event) => setAdminCredentials({ ...adminCredentials, password: event.target.value })}
+                    required
+                  />
+                </label>
+                <button className="button button-primary" type="submit" disabled={adminSaving}>
+                  {adminSaving ? "Ingresando..." : "Iniciar sesión"}
+                </button>
+              </form>
+            ) : isAdmin === null ? (
+              <p className="empty-state" role="status">Comprobando permisos de administración...</p>
+            ) : !isAdmin ? (
+              <div className="admin-access-message">
+                <p>Esta cuenta no tiene permisos para administrar avisos.</p>
+                <button className="button button-secondary" onClick={handleAdminLogout}>
+                  Cerrar sesión
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="admin-toolbar">
+                  <p>Sesión de administración: <strong>{session.user.email}</strong></p>
+                  <button className="button button-secondary" onClick={handleAdminLogout}>
+                    Cerrar sesión
+                  </button>
+                </div>
+                {adminLoading ? (
+                  <p className="empty-state" role="status">Cargando avisos para moderar...</p>
+                ) : adminCats.length ? (
+                  <div className="gatitos-grid admin-grid">
+                    {adminCats.map((cat) => (
+                      <article className="cat-card admin-card" key={cat.id}>
+                        <img className="cat-photo" src={cat.foto} alt={`Foto de ${cat.nombre}`} />
+                        <div className="cat-details">
+                          <div className="admin-card-heading">
+                            <h2>{cat.nombre}</h2>
+                            <span className={`status-badge status-${cat.estado}`}>{catStatuses[cat.estado]}</span>
+                          </div>
+                          <p className="cat-description">{cat.datos}</p>
+                          <p><strong>Edad:</strong> {cat.tiempo}</p>
+                          <p><strong>Contacto:</strong> {cat.contacto}</p>
+                          <div className="admin-actions">
+                            {(cat.estado === "pendiente" || cat.estado === "rechazado") && (
+                              <button className="button button-primary" disabled={adminSaving} onClick={() => handleStatusChange(cat, "aprobado")}>
+                                Aprobar
+                              </button>
+                            )}
+                            {cat.estado === "aprobado" && (
+                              <button className="button button-primary" disabled={adminSaving} onClick={() => handleStatusChange(cat, "adoptado")}>
+                                Marcar adoptado
+                              </button>
+                            )}
+                            {cat.estado === "adoptado" && (
+                              <button className="button button-primary" disabled={adminSaving} onClick={() => handleStatusChange(cat, "aprobado")}>
+                                Volver a adopción
+                              </button>
+                            )}
+                            {cat.estado !== "rechazado" && (
+                              <button className="button button-secondary" disabled={adminSaving} onClick={() => handleStatusChange(cat, "rechazado")}>
+                                Rechazar
+                              </button>
+                            )}
+                            <button className="button button-danger" disabled={adminSaving} onClick={() => handleDeleteCat(cat)}>
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">No hay avisos para moderar.</p>
+                )}
+              </>
             )}
           </section>
         ) : (
