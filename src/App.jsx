@@ -504,7 +504,7 @@ function App() {
             {loading ? (
               <p className="empty-state" role="status">Cargando gatitos...</p>
             ) : (page === "list" ? filteredGatitos : filteredAdoptedCats).length ? (
-              <div className={`gatitos-grid${page === "adopted" ? " gatitos-grid-adopted" : ""}`}>
+              <div className="gatitos-grid gatitos-grid-public">
                 {(page === "list" ? filteredGatitos : filteredAdoptedCats).map((gatito) => (
                   <article className="cat-card" key={gatito.id}>
                     <button

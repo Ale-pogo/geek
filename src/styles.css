@@ -208,8 +208,9 @@ h1 {
   gap: 1.25rem;
 }
 
-.gatitos-grid-adopted {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+.gatitos-grid-public {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), min(100%, 22rem)));
+  justify-content: center;
 }
 
 .cat-card {
